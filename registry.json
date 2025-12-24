@@ -1,0 +1,69 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "@tinfin",
+  "homepage": "http://localhost:3000",
+  "items": [
+    {
+      "name": "auth-1",
+      "type": "registry:block",
+      "title": "Auth 1",
+      "description": "A split layout authentication page with a form and a decorative image.",
+      "registryDependencies": ["button", "input", "label", "checkbox", "separator"],
+      "dependencies": [
+        "motion",
+        "lucide-react"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/auth/auth-1.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "category": "auth"
+    },
+    {
+      "name": "auth-2",
+      "type": "registry:block",
+      "title": "Auth 2",
+      "description": "A centered card authentication form with background effects.",
+      "registryDependencies": ["button", "input", "label", "card", "checkbox", "separator"],
+      "dependencies": [
+        "motion",
+        "lucide-react"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/auth/auth-2.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "category": "auth"
+    },
+    {
+      "name": "auth-3",
+      "type": "registry:block",
+      "title": "Auth 3",
+      "description": "A two-column authentication page with a floating wireframe animation.",
+      "registryDependencies": ["button", "input", "textarea"],
+      "dependencies": [
+        "motion",
+        "lucide-react"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/auth/auth-3.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/floating-wireframe.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "components/logo.tsx",
+          "type": "registry:component"
+        }
+      ],
+      "category": "auth"
+    }
+  ]
+}
