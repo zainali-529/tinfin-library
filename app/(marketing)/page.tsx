@@ -94,10 +94,20 @@ export default function IndexPage() {
                    href={`/blocks/${category.slug}`}
                    className="group relative flex flex-col overflow-hidden rounded-3xl border bg-background/50 backdrop-blur-[2px] p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 hover:border-primary/20"
                  >
-                   <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted/10 mb-6 relative group-hover:ring-1 group-hover:ring-primary/10 transition-all">
-                       {category.preview}
-                       <div className="absolute inset-0 bg-primary/0 transition-colors group-hover:bg-primary/[0.02]" />
-                   </div>
+                  <div className="relative aspect-[2/1] w-full overflow-hidden rounded-2xl bg-muted/20 mb-6 border">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="relative flex items-center justify-center h-16 w-16 rounded-2xl bg-background shadow-sm border group-hover:scale-110 group-hover:shadow-md transition-all duration-300">
+                              <category.icon className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+                              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                          </div>
+                      </div>
+                      <div className="absolute inset-0 -z-10 opacity-[0.4]" 
+                           style={{ 
+                             backgroundImage: `linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)`,
+                             backgroundSize: '24px 24px'
+                           }} 
+                      />
+                  </div>
                    
                    <div className="relative z-10 flex flex-col flex-1">
                        <div className="flex items-center justify-between mb-3">
