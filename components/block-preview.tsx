@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Check, Copy, Monitor, Smartphone, Tablet, GripVertical, RotateCcw, ExternalLink, Loader2, FileCode } from "lucide-react"
+import { Check, Copy, Monitor, Smartphone, Tablet, GripVertical, RotateCcw, ExternalLink, Loader2, FileCode, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,6 +18,7 @@ interface BlockPreviewProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string
   name?: string
   previewUrl?: string
+  isLocked?: boolean
   children: React.ReactNode
 }
 
@@ -27,6 +28,7 @@ export function BlockPreview({
   title,
   name,
   previewUrl,
+  isLocked = false,
   children,
   className,
   ...props
@@ -41,22 +43,72 @@ export function BlockPreview({
   const [isLoading, setIsLoading] = React.useState(true)
   const { theme } = useTheme()
 
+  // Transform files for display
+  const displayFiles = React.useMemo(() => {
+    if (!files) return []
+    
+    const transformed = files.map(f => {
+      const fileName = f.path.split('/').pop() || f.path
+      let newPath = f.path
+      
+      if (f.type === 'component') {
+        newPath = `components/${fileName}`
+      } else if (f.type === 'page') {
+        newPath = `app/${fileName}`
+      } else if (f.type === 'utility') {
+         newPath = `lib/${fileName}`
+      }
+      
+      return {
+        ...f,
+        path: newPath,
+      }
+    })
+
+    // Generate page.tsx if missing
+    if (!transformed.find(f => f.path === "app/page.tsx") && name) {
+        const componentFile = transformed.find(f => f.type === 'component')
+        if (componentFile) {
+             const componentName = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+             const fileName = componentFile.path.split('/').pop()?.replace('.tsx', '');
+             const importPath = `@/components/${fileName}`
+             
+             transformed.push({
+                 path: "app/page.tsx",
+                 type: "page",
+                 content: `import { ${componentName} } from "${importPath}"
+
+export default function Page() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center px-4">
+      <${componentName} />
+    </div>
+  )
+}
+`
+             })
+        }
+    }
+    
+    return transformed
+  }, [files, name])
+
   // Initialize active file
   React.useEffect(() => {
-    if (files && files.length > 0 && !activeFilePath) {
+    if (displayFiles && displayFiles.length > 0 && !activeFilePath) {
       // Prefer page.tsx or the first component
-      const pageFile = files.find(f => f.type === "page")
-      const componentFile = files.find(f => f.type === "component")
-      setActiveFilePath(pageFile?.path || componentFile?.path || files[0].path)
+      const pageFile = displayFiles.find(f => f.type === "page")
+      const componentFile = displayFiles.find(f => f.type === "component")
+      setActiveFilePath(pageFile?.path || componentFile?.path || displayFiles[0].path)
     }
-  }, [files, activeFilePath])
+  }, [displayFiles, activeFilePath])
 
   const activeFile = React.useMemo(() => {
-    if (files) {
-      return files.find(f => f.path === activeFilePath)
+    if (displayFiles) {
+      return displayFiles.find(f => f.path === activeFilePath)
     }
     return null
-  }, [files, activeFilePath])
+  }, [displayFiles, activeFilePath])
 
   const displayCode = activeFile?.content || code || ""
 
@@ -249,6 +301,30 @@ export function BlockPreview({
         </TabsContent>
 
         <TabsContent value="code" className="relative rounded-xl border bg-muted/30 mt-0">
+             {isLocked ? (
+                <div className="flex items-center justify-center h-[500px] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                        <div className="text-center space-y-4 p-6 bg-card rounded-lg shadow-lg border">
+                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                                <Lock className="h-6 w-6" />
+                            </div>
+                            <h3 className="text-xl font-semibold">Pro Access Required</h3>
+                            <Button asChild className="w-full">
+                                <Link href="/pricing">Get Pro Access</Link>
+                            </Button>
+                        </div>
+                    </div>
+                    {/* Blurred Content Placeholder */}
+                    <div className="opacity-20 pointer-events-none w-full h-full flex items-start p-4">
+                        <pre className="text-xs text-muted-foreground w-full">
+                            {Array.from({ length: 20 }).map((_, i) => (
+                                <div key={i} className="h-4 bg-muted-foreground/20 rounded w-full mb-2" style={{ width: `${Math.random() * 50 + 50}%` }} />
+                            ))}
+                        </pre>
+                    </div>
+                </div>
+             ) : (
+             <>
              <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/50">
                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                   <FileCode className="h-4 w-4" />
@@ -269,10 +345,10 @@ export function BlockPreview({
                 </Button>
              </div>
              <div className="flex h-[500px]">
-               {files && files.length > 0 && (
+               {displayFiles && displayFiles.length > 0 && (
                  <div className="w-[250px] border-r bg-background/50 overflow-y-auto shrink-0">
                    <FileTree 
-                     files={files} 
+                     files={displayFiles} 
                      activeFile={activeFilePath} 
                      onSelect={setActiveFilePath} 
                    />
@@ -302,10 +378,27 @@ export function BlockPreview({
                   </Highlight>
                </div>
              </div>
+             </>
+             )}
         </TabsContent>
 
         {name && (
           <TabsContent value="install" className="relative rounded-xl border bg-muted/30 mt-0 p-4">
+            {isLocked ? (
+                <div className="flex items-center justify-center h-[200px] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                        <div className="text-center space-y-4 p-6 bg-card rounded-lg shadow-lg border">
+                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                                <Lock className="h-6 w-6" />
+                            </div>
+                            <h3 className="text-xl font-semibold">Pro Access Required</h3>
+                            <Button asChild className="w-full">
+                                <Link href="/pricing">Get Pro Access</Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
              <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium leading-none">Installation</h4>
@@ -356,6 +449,7 @@ export function BlockPreview({
                     })}
                 </Tabs>
              </div>
+            )}
           </TabsContent>
         )}
       </Tabs>

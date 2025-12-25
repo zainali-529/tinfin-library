@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 type TokenPayload = {
   sub: string;
@@ -25,11 +26,6 @@ function base64urlDecode(input: string) {
 
 function getSecret() {
   return process.env.TINFIN_REGISTRY_SECRET || "tinfin-dev-secret";
-}
-
-function getRevokedList() {
-  const raw = process.env.TINFIN_REVOKED_JTIS || "";
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 function verifyTokenCompact(compact: string): { valid: boolean; payload?: TokenPayload; error?: string } {
@@ -56,11 +52,6 @@ function verifyTokenCompact(compact: string): { valid: boolean; payload?: TokenP
     return { valid: false, error: "Expired token" };
   }
 
-  const revoked = getRevokedList();
-  if (payload.jti && revoked.includes(payload.jti)) {
-    return { valid: false, error: "Revoked token" };
-  }
-
   if (payload.scope && payload.scope !== "registry") {
     return { valid: false, error: "Invalid scope" };
   }
@@ -68,19 +59,30 @@ function verifyTokenCompact(compact: string): { valid: boolean; payload?: TokenP
   return { valid: true, payload };
 }
 
+import { blocks } from "@/registry/blocks/index";
+
 function isProBlock(name: string) {
-  return name === "auth-3.json" || name === "auth-3";
+  // Remove .json extension if present to match block keys
+  const blockName = name.replace(/\.json$/, "");
+  const block = blocks[blockName];
+  return !!(block && block.isPro);
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   try {
     const { name } = await params;
-
-    // Normalize to .json filenames
+    
+    // If the request came via rewrite, 'name' might lack .json if we rewrote to /r/[name] without ext
+    // But if middleware rewrites /r/auth-3.json -> /r/auth-3.json (loop?)
+    // Actually, middleware should rewrite to a different path if we want to bypass static file serving?
+    // OR, if we use /r/[name]/route.ts, it maps to /r/[name].
+    // If we request /r/auth-3.json, static file is served.
+    // If we want dynamic check, we MUST rewrite to something that is NOT the static file path.
+    // So let's handle `name` assuming it might or might not have extension.
+    
     const filename = name.endsWith(".json") ? name : `${name}.json`;
     const filePath = path.join(process.cwd(), "public", "r", filename);
 
-    // Check existence
     let content: string;
     try {
       content = await fs.readFile(filePath, "utf-8");
@@ -111,28 +113,49 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ name
         );
       }
 
-      const result = verifyTokenCompact(token);
-      if (!result.valid || !result.payload || result.payload.plan !== "pro") {
+      const verification = verifyTokenCompact(token);
+      if (!verification.valid || !verification.payload) {
         return NextResponse.json(
-          {
-            error: "Unauthorized",
-            message:
-              "Hold your horses, partner! To unlock this Pro Block, we need your TINFIN_REGISTRY_TOKEN. Check the /docs page if you've purchased pro and it's playing hide-and-seek!",
-          },
-          { status: 401 }
+          { error: "Forbidden", message: verification.error || "Invalid token" },
+          { status: 403 }
         );
+      }
+
+      // Check against database for revocation
+      const { jti } = verification.payload;
+      if (jti) {
+        const { data, error } = await supabaseAdmin
+          .from("tokens")
+          .select("revoked")
+          .eq("jti", jti)
+          .single();
+
+        if (error || !data) {
+           return NextResponse.json(
+              { error: "Forbidden", message: "Token not found in registry records." },
+              { status: 403 }
+           );
+        }
+
+        if (data.revoked) {
+          return NextResponse.json(
+            { error: "Forbidden", message: "This token has been revoked." },
+            { status: 403 }
+          );
+        }
+      } else {
+          return NextResponse.json(
+              { error: "Forbidden", message: "Token missing JTI." },
+              { status: 403 }
+          );
       }
     }
 
-    const res = new NextResponse(content, {
-      status: 200,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, max-age=0",
-      },
+    return new NextResponse(content, {
+      headers: { "Content-Type": "application/json" },
     });
-    return res;
-  } catch {
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+  } catch (error) {
+    console.error("Registry error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

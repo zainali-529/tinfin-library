@@ -10,4 +10,5 @@ export type Block = {
   component: React.ComponentType
   category: string
   files: File[]
+  isPro?: boolean
 }

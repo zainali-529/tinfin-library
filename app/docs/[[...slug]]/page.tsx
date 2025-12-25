@@ -1,3 +1,7 @@
+import { DocsInterface } from "@/components/docs-interface";
+import { createClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
 interface DocPageProps {
   params: Promise<{
     slug?: string[]
@@ -5,20 +9,30 @@ interface DocPageProps {
 }
 
 export default async function DocPage(props: DocPageProps) {
-  const params = await props.params;
-  const slug = params.slug?.join("/") || "index"
+  // We don't really use the slug for now as we are replacing the docs with a single registry page
+  // But we keep the file structure valid.
+  
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let isPaid = false;
+
+  if (user) {
+    const { data: payments } = await supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "paid")
+      .limit(1);
+    
+    if (payments && payments.length > 0) {
+      isPaid = true;
+    }
+  }
 
   return (
-    <div className="prose dark:prose-invert max-w-none">
-      <h1>Documentation: {slug}</h1>
-      <p>
-        This is a placeholder for documentation content. In a real application,
-        this would load MDX files or content from a CMS based on the slug: <code>{slug}</code>.
-      </p>
-      <h2>Introduction</h2>
-      <p>
-        Welcome to the TinFin Library documentation.
-      </p>
+    <div className="py-6">
+      <DocsInterface isPaid={isPaid} userEmail={user?.email} />
     </div>
-  )
+  );
 }

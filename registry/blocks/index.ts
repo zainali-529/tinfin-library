@@ -8,6 +8,7 @@ export const blocks: Record<string, Block> = {
   "auth-3": {
     component: Auth3,
     category: "auth",
+    isPro: true,
     files: [
       {
         path: "registry/blocks/auth/auth-3.tsx",

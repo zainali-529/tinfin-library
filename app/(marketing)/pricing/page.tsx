@@ -10,8 +10,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase-server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  let isPaid = false;
+  if (user) {
+    const { data: payments } = await supabaseAdmin
+      .from("payments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "paid")
+      .limit(1);
+    
+    isPaid = !!(payments && payments.length > 0);
+  }
+
+  const productId = "1313f7d7-fa7f-4793-b8bb-ed90cf35d574"
+  const proHref = user
+    ? `/api/checkout?products=${productId}&customerExternalId=${user.id}&customerEmail=${encodeURIComponent(user.email ?? "")}`
+    : `/api/checkout?products=${productId}`
   return (
     <div className="container mx-auto py-24 md:py-32">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -24,7 +45,6 @@ export default function PricingPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8 pt-12 md:grid-cols-2 lg:gap-12 max-w-4xl mx-auto">
-        {/* Free Plan */}
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="text-2xl">Free</CardTitle>
@@ -58,7 +78,6 @@ export default function PricingPage() {
           </CardFooter>
         </Card>
 
-        {/* Pro Plan */}
         <Card className="flex flex-col border-primary shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-bl-lg">
             Popular
@@ -91,15 +110,15 @@ export default function PricingPage() {
             </ul>
           </CardContent>
           <CardFooter>
-            {/* 
-               IMPORTANT: Replace 'YOUR_POLAR_PRODUCT_ID' with your actual Polar Product ID.
-               The Checkout helper expects a 'products' query parameter.
-               
-               Link href="/api/checkout?products=YOUR_PRODUCT_ID"
-            */}
-            <Link href="/api/checkout?products=1313f7d7-fa7f-4793-b8bb-ed90cf35d574" className="w-full">
+            {isPaid ? (
+               <Button className="w-full" variant="outline" disabled>
+                  Active Plan
+               </Button>
+            ) : (
+            <Link href={proHref} className="w-full">
               <Button className="w-full">Upgrade to Pro</Button>
             </Link>
+            )}
           </CardFooter>
         </Card>
       </div>

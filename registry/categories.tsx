@@ -1,11 +1,11 @@
 import * as React from "react"
-import { AuthPreview } from "@/components/category-previews/auth-preview"
+import { ShieldCheck, LayoutDashboard, FormInput } from "lucide-react"
 
 export interface Category {
   name: string
   slug: string
   description: string
-  preview: React.ReactNode
+  icon: React.ElementType
 }
 
 export const categories: Category[] = [
@@ -13,6 +13,6 @@ export const categories: Category[] = [
     name: "Authentication",
     slug: "auth",
     description: "Login forms, sign up pages, and authentication components.",
-    preview: <AuthPreview />,
+    icon: ShieldCheck,
   },
 ]

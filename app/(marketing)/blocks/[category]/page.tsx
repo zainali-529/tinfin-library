@@ -5,6 +5,8 @@ import { categories } from "@/registry/categories"
 import { BlockPreview } from "@/components/block-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase-server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
 interface CategoryPageProps {
   params: Promise<{
@@ -21,6 +23,22 @@ export default async function CategoryPage(props: CategoryPageProps) {
   const categoryInfo = categories.find(c => c.slug === categorySlug)
   const categoryName = categoryInfo ? categoryInfo.name : categorySlug
   const categoryDescription = categoryInfo ? categoryInfo.description : `Browse our collection of ${categorySlug} components.`
+
+  // Check Auth & Payment
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let isPaid = false;
+  if (user) {
+    const { data: payments } = await supabaseAdmin
+      .from("payments")
+      .select("id") // Optimization: select only id
+      .eq("user_id", user.id)
+      .eq("status", "paid") 
+      .limit(1);
+    
+    isPaid = !!(payments && payments.length > 0);
+  }
 
   return (
     <div className="relative min-h-screen w-full">
@@ -71,6 +89,8 @@ export default async function CategoryPage(props: CategoryPageProps) {
         <div className="container relative z-10">
             {categoryBlocks.map(([name, block], index) => {
             const Component = block.component
+            const isLocked = (block.isPro || name.includes("pro")) && !isPaid;
+            
             return (
                 <div key={name} className="relative">
                     <div className="py-12 md:py-16 flex flex-col space-y-6">
@@ -81,7 +101,12 @@ export default async function CategoryPage(props: CategoryPageProps) {
                         </div> */}
                         
                         <div className="overflow-hidden">
-                             <BlockPreview name={name} files={block.files} previewUrl={`/view/${block.category}/${name}`}>
+                             <BlockPreview 
+                               name={name} 
+                               files={block.files} 
+                               previewUrl={`/view/${block.category}/${name}`}
+                               isLocked={isLocked}
+                             >
                                 <Component />
                             </BlockPreview>
                         </div>
